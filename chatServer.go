@@ -58,7 +58,7 @@ func main(){
 		URL and port are inquired.
 		Last parameter is max users number allowed.
 	*/
-	launchServer("tcp", "localhost", "1234", 3);
+	launchServer("tcp", "localhost", "1234", 100);
 }
 
 /*
@@ -67,6 +67,10 @@ func main(){
 
 */ 
 
+/*
+	Launch the server using the protocole and url inquired.
+	The users number limit is also inquired.   
+*/
 func launchServer(protocole string, address string, port string, maxUsersAllowed int){
 	fmt.Println("> Launching server...");
 	listener, err := launchListener(protocole, address, port);
@@ -76,6 +80,8 @@ func launchServer(protocole string, address string, port string, maxUsersAllowed
 	launchProcess(&uniqueSession, &listener, err);
 }
 
+
+// Launch the users listener.
 func launchListener(protocole string, address string, port string) (listener net.Listener, err error){
 	var sbuffer bytes.Buffer;
 
@@ -86,6 +92,7 @@ func launchListener(protocole string, address string, port string) (listener net
 	return net.Listen(protocole, sbuffer.String());
 }
 
+// Build a new session.
 func buildSession(listener *net.Listener, maxUsersAllowed int) session {
 	var sess session;
 	sess.serverListener = listener;
@@ -95,6 +102,7 @@ func buildSession(listener *net.Listener, maxUsersAllowed int) session {
 	return sess;
 }
 
+// Launch the server main execution.
 func launchProcess(sess *session, listener *net.Listener, err error){
 	fmt.Println("> Server started.");
 	fmt.Println("> Listening to user connections...");
@@ -114,6 +122,7 @@ func launchProcess(sess *session, listener *net.Listener, err error){
 	}
 }
 
+// Check if the session has reached the users limit.
 func checkSessionFilled(sess *session) bool {
 	return sess.usersPtr >= sess.maxUsersAllowed - 1;
 }
@@ -124,6 +133,7 @@ func checkSessionFilled(sess *session) bool {
 
 */
 
+// Process a new user. Create it and handle it.
 func processNewUser(sess *session, listener *net.Listener, conn *net.Conn) {
 	// create user
 	newUser := createUser(sess, listener, conn);
@@ -131,6 +141,7 @@ func processNewUser(sess *session, listener *net.Listener, conn *net.Conn) {
 	handleUser(sess, newUser);
 }
 
+// Create a new user and displays welcome message.
 func createUser(sess *session, listener *net.Listener, conn *net.Conn) *user{
 	newUser := user{
 		pseudo: "null",
@@ -169,6 +180,7 @@ func createUser(sess *session, listener *net.Listener, conn *net.Conn) *user{
 	return &newUser;
 }
 
+// Handle a user.
 func handleUser(sess *session, _user *user){
 	reader := bufio.NewReader(*(_user.connection));
 
@@ -186,12 +198,12 @@ func handleUser(sess *session, _user *user){
 	processUserExit(sess, _user);
 }
 
-// TO FINALISE
+// Handle user exit.
 func processUserExit(sess *session, _user *user){
 	broadcastMessage(sess, _user, buildByeMessage(_user.pseudo));
 	(*_user.connection).Close();
-	sess.users[_user.id] = sess.users[sess.maxUsersAllowed - 1];
-	sess.users[sess.maxUsersAllowed - 1] = user{};
+	sess.users[_user.id] = sess.users[sess.usersPtr];
+	sess.users[sess.usersPtr - 1] = user{};
 	sess.usersPtr = sess.usersPtr - 1;
 }
 
@@ -201,6 +213,7 @@ func processUserExit(sess *session, _user *user){
 
 */ 
 
+// Build a welcome message
 func buildWelcomeMessage(userPseudo string) string {
 	var sbuffer bytes.Buffer;
 	sbuffer.WriteString("> Welcome ");
@@ -210,6 +223,7 @@ func buildWelcomeMessage(userPseudo string) string {
 	return content;
 }
 
+// Build a bye message
 func buildByeMessage(userPseudo string) string {
 	var sbuffer bytes.Buffer;
 	sbuffer.WriteString("> See you later ");
@@ -219,6 +233,7 @@ func buildByeMessage(userPseudo string) string {
 	return content;
 }
 
+// Preparer a user message to be sent 
 func buildUserMessage(_user *user, message string) string {
 	var sbuffer bytes.Buffer;
 	sbuffer.WriteString(_user.pseudo);
@@ -229,6 +244,7 @@ func buildUserMessage(_user *user, message string) string {
 	return content;
 }
 
+// Send a message to all the users of a session except the messageSender
 func broadcastMessage(sess *session, messageSender *user, message string){
 	for userId := range sess.users {
 		if userId != messageSender.id {
@@ -243,6 +259,7 @@ func broadcastMessage(sess *session, messageSender *user, message string){
 	}
 }
 
+// Send a message to all the users of a session
 func broadcastMessageToAll(sess *session, message string){
 	for userId := range sess.users {
 		currentUser := sess.users[userId];
@@ -255,10 +272,12 @@ func broadcastMessageToAll(sess *session, message string){
 	}
 }
 
+// Removes 'by' occurrences of 'message' content
 func filterMessage(message string, by string) string{
 	return strings.Replace(message, by, "", -1);
 }
 
+// Returns a proper version of the pseudo inquired
 func filterPseudo(pseudo string) string {
 	fpseudo := strings.Replace(pseudo, "\n", "", -1);
 	fpseudo = strings.Replace(fpseudo, " ", "", -1);
